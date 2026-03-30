@@ -1,0 +1,731 @@
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Standard JWT bearer token storing subject and roles (Administrator, Przeglądający, Twórca).
+  schemas:
+    UserRole:
+      type: string
+      description: Application role stored in the internal JWT `roles` claim.
+      enum:
+        - VIEWER
+        - CREATOR
+        - ADMIN
+
+    SetUserRolesCommand:
+      type: object
+      required:
+        - roles
+      properties:
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UserRole'
+
+    CurrentUserResponse:
+      type: object
+      required:
+        - userId
+        - roles
+      properties:
+        userId:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UserRole'
+        blockedUntil:
+          type: string
+          format: date-time
+          nullable: true
+        blockedReason:
+          type: string
+          nullable: true
+
+    UserAdminSummaryDTO:
+      type: object
+      required:
+        - userId
+        - roles
+      properties:
+        userId:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UserRole'
+        blockedUntil:
+          type: string
+          format: date-time
+          nullable: true
+        blockedReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        materialsCount:
+          type: integer
+          minimum: 0
+          nullable: true
+        lastMaterialCreatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UsersPageResponse:
+      type: object
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserAdminSummaryDTO'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    UserAdminDetailsResponse:
+      type: object
+      required:
+        - userId
+        - roles
+      properties:
+        userId:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UserRole'
+        blockedUntil:
+          type: string
+          format: date-time
+          nullable: true
+        blockedReason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        materialsCount:
+          type: integer
+          minimum: 0
+          nullable: true
+        lastMaterialCreatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastModerationAt:
+          type: string
+          format: date-time
+          nullable: true
+        strikesCount:
+          type: integer
+          minimum: 0
+          nullable: true
+
+    AuditAction:
+      type: string
+      description: Type of administrative/moderation action recorded for security audits.
+      enum:
+        - USER_BLOCKED
+        - USER_UNBLOCKED
+        - USER_ROLES_CHANGED
+        - MATERIAL_UPDATED
+        - MATERIAL_DELETED
+
+    AuditEventDTO:
+      type: object
+      required:
+        - id
+        - at
+        - action
+        - actorUserId
+      properties:
+        id:
+          type: string
+          format: uuid
+        at:
+          type: string
+          format: date-time
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        actorUserId:
+          type: string
+          format: uuid
+        targetUserId:
+          type: string
+          format: uuid
+          nullable: true
+        materialId:
+          type: string
+          format: uuid
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        details:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+
+    AuditEventsPageResponse:
+      type: object
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEventDTO'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PartialDate:
+      type: string
+      description: Date with variable precision (`YYYY`, `YYYY-MM`, `YYYY-MM-DD`).
+      pattern: "^\\d{4}(-\\d{2}(-\\d{2})?)?$"
+      example: '1984-05'
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties:
+            type: string
+    Pagination:
+      type: object
+      required:
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    MaterialDTO:
+      type: object
+      required:
+        - id
+        - title
+        - location
+        - creationDate
+        - description
+        - hierarchyId
+        - ownerId
+        - metadata
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        location:
+          type: string
+        placeId:
+          type: string
+          description: Optional standardized place identifier (e.g., OSM/Google Place ID) if provided by the creator.
+        lat:
+          type: number
+          format: double
+          description: Optional latitude coordinate if provided by the creator.
+        lon:
+          type: number
+          format: double
+          description: Optional longitude coordinate if provided by the creator.
+        creationDate:
+          $ref: '#/components/schemas/PartialDate'
+        description:
+          type: string
+        hierarchyId:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+        fileUrl:
+          type: string
+          format: uri
+          description: URL to the original uploaded photo asset.
+        thumbnailUrl:
+          type: string
+          format: uri
+          description: URL to a derived thumbnail suitable for lists.
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateMaterialCommand:
+      type: object
+      required:
+        - title
+        - location
+        - creationDate
+        - description
+        - hierarchyId
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+        creationDate:
+          $ref: '#/components/schemas/PartialDate'
+        description:
+          type: string
+        hierarchyId:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          format: uuid
+          deprecated: true
+          description: Deprecated. The server should infer the owner from the JWT; clients should omit it.
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+    CreateMaterialMultipart:
+      type: object
+      required:
+        - title
+        - location
+        - creationDate
+        - description
+        - file
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+          description: Free-form textual location (kept for accessibility and legacy support).
+        placeId:
+          type: string
+          description: Optional standardized place identifier (for example Google Place ID, OSM relation ID, or other stable ID).
+        lat:
+          type: number
+          format: double
+          description: Optional latitude used for geo-based filtering and map display.
+        lon:
+          type: number
+          format: double
+          description: Optional longitude used for geo-based filtering and map display.
+        creationDate:
+          $ref: '#/components/schemas/PartialDate'
+        description:
+          type: string
+        hierarchyId:
+          type: string
+          format: uuid
+          description: >
+            Optional hierarchy node id. If omitted, the server will attempt to resolve and create hierarchy nodes
+            from `lat` and `lon` (both must be provided).
+        file:
+          type: string
+          format: binary
+          description: Photo file content.
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+    UpdateMaterialCommand:
+      type: object
+      required:
+        - title
+        - location
+        - creationDate
+        - description
+        - hierarchyId
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+        creationDate:
+          $ref: '#/components/schemas/PartialDate'
+        description:
+          type: string
+        hierarchyId:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+    HierarchyNode:
+      type: object
+      required:
+        - id
+        - name
+        - level
+        - children
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        level:
+          type: integer
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/HierarchyNode'
+    HierarchyViewportResponse:
+      type: object
+      required:
+        - level
+        - bbox
+        - root
+        - pagination
+      properties:
+        level:
+          type: string
+          description: Requested level slug (canonicalized by the server).
+        bbox:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            type: number
+            format: double
+          description: Echoed request bbox as `[minLon, minLat, maxLon, maxLat]`.
+        root:
+          $ref: '#/components/schemas/HierarchyViewportNode'
+        pagination:
+          $ref: '#/components/schemas/HierarchyViewportPagination'
+    HierarchyViewportPagination:
+      type: object
+      required:
+        - limit
+        - returned
+        - truncated
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        returned:
+          type: integer
+          minimum: 0
+        truncated:
+          type: boolean
+    HierarchyViewportNode:
+      type: object
+      required:
+        - id
+        - name
+        - level
+        - parentId
+        - hasChildren
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        level:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        hasChildren:
+          type: boolean
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/HierarchyViewportNode'
+          nullable: true
+        path:
+          type: array
+          items:
+            $ref: '#/components/schemas/HierarchyViewportPathItem'
+          nullable: true
+          description: Present only when `include=ancestors` is requested. Breadcrumb path from the archive root to this node's parent (excluding the node itself).
+        stats:
+          $ref: '#/components/schemas/HierarchyViewportStats'
+          nullable: true
+        extent:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            type: number
+            format: double
+          nullable: true
+          description: Present only when `include=bbox` is requested (computed from materials in the bbox).
+    HierarchyViewportPathItem:
+      type: object
+      required:
+        - id
+        - name
+        - level
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        level:
+          type: string
+    HierarchyViewportStats:
+      type: object
+      required:
+        - points
+      properties:
+        points:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Count of materials aggregated for this node within the bbox.
+    MaterialListResponse:
+      type: object
+      required:
+        - pagination
+        - data
+      properties:
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialDTO'
+    MaterialBrowseResponse:
+      type: object
+      required:
+        - data
+      properties:
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of matching materials returned in `data` (no pagination).
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialDTO'
+    MaterialMapResponse:
+      type: object
+      required:
+        - points
+      properties:
+        totalPhotos:
+          type: integer
+          minimum: 0
+          description: Total number of photos returned across all points.
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialMapPoint'
+    MaterialMapPoint:
+      type: object
+      required:
+        - lat
+        - lon
+        - photos
+      properties:
+        title:
+          type: string
+          description: Optional point label (e.g., place name).
+        description:
+          type: string
+          description: Optional point description shown in marker popup.
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialMapPhoto'
+    MaterialMapPhoto:
+      type: object
+      required:
+        - id
+        - title
+        - year
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        year:
+          type: integer
+          minimum: 0
+    MaterialPreviewsRequest:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: string
+            format: uuid
+    MaterialPreviewDTO:
+      type: object
+      required:
+        - id
+        - title
+        - year
+        - thumbnailUrl
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        year:
+          type: integer
+          minimum: 0
+        thumbnailUrl:
+          type: string
+          format: uri
+        fileUrl:
+          type: string
+          format: uri
+    MaterialPreviewsResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialPreviewDTO'
+        notFoundIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    BlockUserCommand:
+      type: object
+      required:
+        - reason
+        - blockedUntil
+      properties:
+        reason:
+          type: string
+        blockedUntil:
+          type: string
+          format: date-time
+
+    GoogleIdTokenRequest:
+      type: object
+      required:
+        - idToken
+      properties:
+        idToken:
+          type: string
+          description: Google ID token (JWT) obtained via Google OAuth2/OpenID Connect.
+
+    TokenResponse:
+      type: object
+      required:
+        - accessToken
+        - tokenType
+        - expiresInSeconds
+      properties:
+        accessToken:
+          type: string
+          description: "JWT access token to be used as `Authorization: Bearer <token>`."
+        tokenType:
+          type: string
+          example: Bearer
+        expiresInSeconds:
+          type: integer
+          minimum: 1
+        userId:
+          type: string
+          format: uuid
+          description: Internal user id (JWT subject).
+        roles:
+          type: array
+          description: Roles embedded into the issued JWT token.
+          items:
+            $ref: '#/components/schemas/UserRole'
+
+    GoogleAuthorizationUrlResponse:
+      type: object
+      required:
+        - authorizationUrl
+      properties:
+        authorizationUrl:
+          type: string
+          format: uri
+          description: Google OAuth2 authorization URL to open in a browser (contains the `state` parameter).

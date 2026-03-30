@@ -1,0 +1,267 @@
+users:
+  get:
+    tags:
+      - Administration
+    summary: List users
+    description: >
+      Administrators list user accounts along with their roles and block status (for monitoring and moderation).
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: q
+        in: query
+        description: Free-text search (implementation-defined; e.g., email / display name / id).
+        schema:
+          type: string
+      - name: role
+        in: query
+        description: Filter by role.
+        schema:
+          $ref: '../components/components.yaml#/components/schemas/UserRole'
+      - name: blocked
+        in: query
+        description: Filter by blocked status.
+        schema:
+          type: boolean
+    responses:
+      '200':
+        description: Paged list of users.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/UsersPageResponse'
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '403':
+        description: Administrator role required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - admin:users
+    x-roleDescriptions:
+      - Administrator: monitor accounts and manage access.
+
+userById:
+  get:
+    tags:
+      - Administration
+    summary: Get user details
+    description: >
+      Administrators fetch user details including roles, block status, and basic activity counters.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: User details.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/UserAdminDetailsResponse'
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '403':
+        description: Administrator role required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '404':
+        description: User not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - admin:users
+    x-roleDescriptions:
+      - Administrator: review an account before moderation actions.
+
+block:
+  post:
+    tags:
+      - Administration
+    summary: Block a user from adding materials
+    description: Administrators block a creator from uploading more materials.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/components.yaml#/components/schemas/BlockUserCommand'
+    responses:
+      '204':
+        description: User blocked.
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '403':
+        description: Administrator role required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '404':
+        description: User not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - admin:block
+    x-roleDescriptions:
+      - Administrator: manage contributor access.
+  delete:
+    tags:
+      - Administration
+    summary: Unblock a user
+    description: Administrators remove a user's upload block, allowing them to add new materials again.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '204':
+        description: User unblocked.
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '403':
+        description: Administrator role required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '404':
+        description: User not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - admin:block
+    x-roleDescriptions:
+      - Administrator: restore contributor access.
+
+roles:
+  put:
+    tags:
+      - Administration
+    summary: Set user roles
+    description: Administrators assign roles to a user account. Roles are reflected in newly issued JWT tokens.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/components.yaml#/components/schemas/SetUserRolesCommand'
+    responses:
+      '204':
+        description: Roles updated.
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '403':
+        description: Administrator role required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '404':
+        description: User not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - admin:roles
+    x-roleDescriptions:
+      - Administrator: manage user roles.
+
+me:
+  get:
+    tags:
+      - Users
+    summary: Get current user profile
+    description: Returns the current authenticated user's id, roles, and block status.
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        description: Current user.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/CurrentUserResponse'
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'

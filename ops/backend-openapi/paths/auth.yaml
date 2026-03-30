@@ -1,0 +1,109 @@
+googleLogin:
+  get:
+    operationId: authGoogleLoginGet
+    tags:
+      - Authentication
+    summary: Build Google OAuth2 authorization URL
+    description: >
+      Returns the Google OAuth2 authorization URL (including the `state` parameter).
+      Open it in a browser to obtain a `code`, which is then exchanged on `GET /auth/google/callback`.
+    security: []
+    responses:
+      '200':
+        description: Google authorization URL.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/GoogleAuthorizationUrlResponse'
+
+googleLoginRedirect:
+  get:
+    operationId: authGoogleLoginRedirectGet
+    tags:
+      - Authentication
+    summary: Start Google OAuth2 login (browser redirect)
+    description: >
+      Redirects the browser to Google's OAuth2 authorization endpoint.
+      Swagger UI "Try it out" cannot follow this redirect due to browser CORS restrictions; use a normal browser
+      navigation instead.
+    security: []
+    responses:
+      '302':
+        description: Redirect to Google authorization endpoint.
+        headers:
+          Location:
+            schema:
+              type: string
+              format: uri
+            description: Google authorization URL.
+
+googleCallback:
+  get:
+    operationId: authGoogleCallbackGet
+    tags:
+      - Authentication
+    summary: Google OAuth2 callback
+    description: >
+      Exchanges the authorization `code` for a Google `id_token`, verifies it, then issues an internal JWT bearer token
+      for this API.
+    security: []
+    parameters:
+      - name: code
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: state
+        in: query
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Issued internal JWT access token.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/TokenResponse'
+      '400':
+        description: Invalid state or invalid code.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+
+googleToken:
+  post:
+    operationId: authGoogleTokenPost
+    tags:
+      - Authentication
+    summary: Exchange Google ID token for internal JWT
+    description: >
+      Accepts a Google `id_token` (JWT) obtained by a client and exchanges it for an internal JWT bearer token used by
+      this API.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/components.yaml#/components/schemas/GoogleIdTokenRequest'
+    responses:
+      '200':
+        description: Issued internal JWT access token.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/TokenResponse'
+      '400':
+        description: Invalid request.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Invalid or expired Google token.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'

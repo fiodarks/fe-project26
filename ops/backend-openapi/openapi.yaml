@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: Digital Social Archive API
+  version: 1.0.0
+  description: >
+    RESTful API for the Digital Social Archive platform. Implements hexagonal-inspired
+    contracts for materials, hierarchy, and administration with role-aware JWT bearer
+    authentication.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development (HTTP)
+security:
+  - bearerAuth: []
+paths:
+  /hierarchy:
+    $ref: './paths/hierarchy.yaml#/hierarchyViewport'
+  /hierarchy/tree:
+    $ref: './paths/hierarchy.yaml#/hierarchyTree'
+  /materials:
+    $ref: './paths/materials.yaml#/materials'
+  /materials/previews:
+    $ref: './paths/materials.yaml#/materialsPreviews'
+  /materialsPreviews:
+    $ref: './paths/materials.yaml#/materialsPreviewsLegacy'
+  /materials/{id}:
+    $ref: './paths/materials.yaml#/materialsId'
+  /users:
+    $ref: './paths/users.yaml#/users'
+  /users/{userId}:
+    $ref: './paths/users.yaml#/userById'
+  /users/{userId}/block:
+    $ref: './paths/users.yaml#/block'
+  /users/{userId}/roles:
+    $ref: './paths/users.yaml#/roles'
+  /users/me:
+    $ref: './paths/users.yaml#/me'
+  /audit/events:
+    $ref: './paths/audit.yaml#/auditEvents'
+  /auth/google/login:
+    $ref: './paths/auth.yaml#/googleLogin'
+  /auth/google/login/redirect:
+    $ref: './paths/auth.yaml#/googleLoginRedirect'
+  /auth/google/callback:
+    $ref: './paths/auth.yaml#/googleCallback'
+  /auth/google/token:
+    $ref: './paths/auth.yaml#/googleToken'

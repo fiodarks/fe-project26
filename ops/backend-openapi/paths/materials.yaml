@@ -1,0 +1,339 @@
+materials:
+  get:
+    tags:
+      - Materials
+    summary: Fetch materials for map viewport
+    description: >
+      Returns map-ready points grouped by coordinates inside the provided bounding box.
+      Supports search and filters (metadata, tags, hierarchy affiliation, and time bounds).
+      Public endpoint (no authentication required).
+    security: []
+    parameters:
+      - name: bbox
+        in: query
+        style: form
+        explode: false
+        required: true
+        schema:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            type: number
+            format: double
+        description: Bounding box as `minLon,minLat,maxLon,maxLat`.
+        examples:
+          warsawViewport:
+            summary: Warsaw viewport bounding box
+            value: [20.8257837, 52.1779306, 21.1703081, 52.3058533]
+      - name: dateFrom
+        in: query
+        schema:
+          $ref: '../components/components.yaml#/components/schemas/PartialDate'
+        description: Inclusive lower bound for the material's `creationDate`.
+        examples:
+          from1990:
+            summary: From year 1990
+            value: "1990"
+      - name: dateTo
+        in: query
+        schema:
+          $ref: '../components/components.yaml#/components/schemas/PartialDate'
+        description: Inclusive upper bound for the material's `creationDate`.
+        examples:
+          toToday:
+            summary: Up to today (2026-03-17)
+            value: "2026-03-17"
+      - name: search
+        in: query
+        schema:
+          type: string
+        description: Phrase matched against descriptions and metadata.
+        example: ""
+      - name: filter
+        in: query
+        schema:
+          type: array
+          items:
+            type: string
+        explode: true
+        description: Metadata filters as repeated `filter=key=value` parameters (exact match).
+        example: []
+      - name: tags
+        in: query
+        schema:
+          type: array
+          items:
+            type: string
+        explode: true
+        description: Filter by tag (any match). Repeat parameter to pass multiple tags.
+        example: []
+      - name: hierarchyLevelId
+        in: query
+        schema:
+          type: string
+          format: uuid
+        description: Filter by hierarchy node identifier.
+    responses:
+      '200':
+        description: Map-ready points grouped by coordinates.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/MaterialMapResponse'
+      '400':
+        description: Invalid query parameters.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Unauthorized or expired token.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roleDescriptions:
+      - Public: browse map markers without login.
+  post:
+    tags:
+      - Materials
+    summary: Upload a new material
+    description: >
+      Twórca creates a photo record with mandatory metadata and hierarchy assignment.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../components/components.yaml#/components/schemas/CreateMaterialMultipart'
+    responses:
+      '201':
+        description: Material created successfully.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/MaterialDTO'
+      '400':
+        description: Validation failed (missing required fields).
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '403':
+        description: Requires Twórca role.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - creator:create
+    x-roleDescriptions:
+      - Creator: upload new materials with required metadata.
+materialsPreviews:
+  post:
+    tags:
+      - Materials
+    summary: Batch fetch material previews
+    description: >
+      Returns lightweight preview data (including `thumbnailUrl`) for the provided material ids.
+      Intended for map popups to avoid N+1 requests. Public endpoint (no authentication required).
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/components.yaml#/components/schemas/MaterialPreviewsRequest'
+    responses:
+      '200':
+        description: Preview data for requested ids (missing ids are returned in `notFoundIds`).
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/MaterialPreviewsResponse'
+      '400':
+        description: Invalid request body.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Unauthorized or expired token.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+materialsPreviewsLegacy:
+  post:
+    tags:
+      - Materials
+    summary: Batch fetch material previews (legacy alias)
+    description: >
+      Deprecated alias for `/materials/previews`. Returns lightweight preview data for the provided ids.
+      Public endpoint (no authentication required).
+    deprecated: true
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/components.yaml#/components/schemas/MaterialPreviewsRequest'
+    responses:
+      '200':
+        description: Preview data for requested ids.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/MaterialPreviewsResponse'
+      '400':
+        description: Invalid request body.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Unauthorized or expired token.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+materialsId:
+  get:
+    tags:
+      - Materials
+    summary: Get material details
+    description: Public material metadata for map browsing.
+    security: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Material details.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/MaterialDTO'
+      '404':
+        description: Material not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Unauthorized access.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roleDescriptions:
+      - Public: open material details for map browsing.
+  put:
+    tags:
+      - Materials
+    summary: Update material metadata
+    description: Creators update own items while administrators can update any material.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/components.yaml#/components/schemas/UpdateMaterialCommand'
+    responses:
+      '200':
+        description: Material updated.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/MaterialDTO'
+      '403':
+        description: Forbidden (insufficient rights or not owner).
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '404':
+        description: Material not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - creator:update
+        - admin:update
+    x-roleDescriptions:
+      - Creator: modify owned material metadata.
+      - Administrator: override any material.
+  delete:
+    tags:
+      - Materials
+    summary: Delete a material
+    description: Creators delete their photos while administrators delete any faulty content.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '204':
+        description: Material removed.
+      '403':
+        description: Forbidden; not owner nor admin.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '404':
+        description: Material not found.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - creator:delete
+        - admin:delete
+    x-roleDescriptions:
+      - Creator: delete own material.
+      - Administrator: delete faulty content globally.

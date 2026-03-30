@@ -1,0 +1,119 @@
+hierarchyViewport:
+  get:
+    tags:
+      - Hierarchy
+    summary: Retrieve hierarchy nodes for viewport
+    description: >
+      Returns a bbox-filtered hierarchy tree rooted at the archive root. The tree includes all nodes from the root
+      down to the requested depth (`level`) that are on a path to at least one matching node at `level`
+      (i.e. each returned `level` node has at least one material inside the provided WGS84 bbox).
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: bbox
+        in: query
+        required: true
+        description: Bounding box filter as `minLon,minLat,maxLon,maxLat` (WGS84).
+        style: form
+        explode: false
+        schema:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            type: number
+            format: double
+      - name: level
+        in: query
+        required: true
+        description: >
+          Hierarchy granularity to return (slug or numeric level id).
+          Supported slugs: `root`, `country`, `region`, `city`, `district`.
+        schema:
+          type: string
+          example: country
+      - name: parentId
+        in: query
+        required: false
+        description: When provided, return only nodes within this parent's subtree (still bbox-filtered).
+        schema:
+          type: string
+          format: uuid
+      - name: search
+        in: query
+        required: false
+        description: Case-insensitive substring filter for names.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        description: Hard cap on returned nodes (default 500, max 2000).
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2000
+          default: 500
+      - name: include
+        in: query
+        required: false
+        description: Comma-separated list of optional expansions (`ancestors,counts,bbox`).
+        style: form
+        explode: false
+        schema:
+          type: array
+          items:
+            type: string
+            enum: [ancestors, counts, bbox]
+    responses:
+      '200':
+        description: Viewport hierarchy nodes
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/HierarchyViewportResponse'
+      '400':
+        description: Invalid bbox/level/params
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '401':
+        description: Authorization header missing or invalid
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - viewer:read
+        - creator:read
+        - admin:read
+
+hierarchyTree:
+  get:
+    tags:
+      - Hierarchy
+    summary: Retrieve full archive hierarchy tree
+    description: >
+      Returns the full hierarchy tree for navigation. Prefer `/hierarchy` for viewport-driven progressive disclosure.
+    security:
+      - bearerAuth: []
+    responses:
+      '200':
+        description: Hierarchy structure
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/HierarchyNode'
+      '401':
+        description: Authorization header missing or invalid
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - viewer:read
+        - creator:read
+        - admin:read

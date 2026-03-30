@@ -1,0 +1,77 @@
+auditEvents:
+  get:
+    tags:
+      - Administration
+    summary: Fetch audit events
+    description: >
+      Returns a paged audit log of administrative and moderation actions (role changes, user blocks/unblocks,
+      and content moderation actions). Intended for security audits.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: actorUserId
+        in: query
+        description: Filter by administrator/moderator user id (actor).
+        schema:
+          type: string
+          format: uuid
+      - name: targetUserId
+        in: query
+        description: Filter by affected user id (target).
+        schema:
+          type: string
+          format: uuid
+      - name: action
+        in: query
+        description: Filter by action type.
+        schema:
+          $ref: '../components/components.yaml#/components/schemas/AuditAction'
+      - name: from
+        in: query
+        description: Inclusive lower bound for event timestamp (UTC).
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        description: Inclusive upper bound for event timestamp (UTC).
+        schema:
+          type: string
+          format: date-time
+    responses:
+      '200':
+        description: Paged audit events.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/AuditEventsPageResponse'
+      '401':
+        description: Authentication required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+      '403':
+        description: Administrator role required.
+        content:
+          application/json:
+            schema:
+              $ref: '../components/components.yaml#/components/schemas/ErrorResponse'
+    x-roles:
+      scopes:
+        - admin:audit
+    x-roleDescriptions:
+      - Administrator: conduct security audits and review admin actions.
