@@ -1,10 +1,63 @@
-import { type CSSProperties, useMemo, useState } from 'react'
+import { type CSSProperties, useMemo, useRef, useState } from 'react'
 import type { HierarchyNode, MaterialDTO, UpdateMaterialCommand } from '../../api/types'
 import { HierarchyPicker } from '../hierarchy/HierarchyPicker'
 import type { LatLon } from '../map/LeafletMap'
 
 const partialDateRe = /^\d{4}(-\d{2}(-\d{2})?)?$/
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+function inferImageMimeType(file: File): string | null {
+  if (file.type && file.type.startsWith('image/')) return file.type
+  const name = (file.name ?? '').toLowerCase()
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg'
+  if (name.endsWith('.png')) return 'image/png'
+  if (name.endsWith('.webp')) return 'image/webp'
+  if (name.endsWith('.gif')) return 'image/gif'
+  return null
+}
+
+function normalizeImageFile(file: File): File | null {
+  const mime = inferImageMimeType(file)
+  if (!mime) return null
+  if (file.type === mime) return file
+  // Some browsers provide empty File.type and then the multipart part becomes application/octet-stream.
+  return new File([file], file.name, { type: mime, lastModified: file.lastModified })
+}
+
+function replaceFileExt(name: string, ext: string): string {
+  const trimmed = (name ?? '').trim()
+  if (!trimmed) return `upload.${ext}`
+  const lastDot = trimmed.lastIndexOf('.')
+  if (lastDot <= 0) return `${trimmed}.${ext}`
+  return `${trimmed.slice(0, lastDot)}.${ext}`
+}
+
+async function transcodeToJpeg(source: File, quality = 0.9): Promise<File> {
+  const bitmap = await createImageBitmap(source)
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas context is unavailable.')
+    ctx.drawImage(bitmap, 0, 0)
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Failed to encode JPEG.'))),
+        'image/jpeg',
+        quality,
+      )
+    })
+
+    return new File([blob], replaceFileExt(source.name, 'jpg'), {
+      type: 'image/jpeg',
+      lastModified: source.lastModified,
+    })
+  } finally {
+    bitmap.close()
+  }
+}
 
 function extractHashTags(text: string): string[] {
   const matches = text.matchAll(/#([\p{L}\p{N}_-]+)/gu)
@@ -47,6 +100,8 @@ export function MaterialUpsertDrawer({
   )
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [fileBusy, setFileBusy] = useState(false)
+  const filePickSeqRef = useRef(0)
 
   const locationValue =
     mode === 'edit' ? locationDraft : locationTouched ? locationDraft : (prefillLocation ?? locationDraft)
@@ -82,7 +137,10 @@ export function MaterialUpsertDrawer({
 
     if (!coords) return setError('Pick a point on the map (required).')
     if (!file) return setError('Photo file is required for upload.')
+    if (fileBusy) return setError('Please wait for the image to finish processing.')
     if (file.size > MAX_PHOTO_BYTES) return setError('Photo must be 5MB or smaller.')
+    const normalizedFile = normalizeImageFile(file)
+    if (!normalizedFile) return setError('Unsupported file type. Please upload an image.')
 
     const form = new FormData()
     form.append('title', title.trim())
@@ -90,7 +148,7 @@ export function MaterialUpsertDrawer({
     form.append('creationDate', creationDate.trim())
     form.append('description', description.trim())
     if (hierarchyId) form.append('hierarchyId', hierarchyId)
-    form.append('file', file)
+    form.append('file', normalizedFile, normalizedFile.name)
 
     if (coords) {
       form.append('lat', String(coords.lat))
@@ -173,22 +231,72 @@ export function MaterialUpsertDrawer({
             accept="image/*"
             onChange={(e) => {
               const selected = e.target.files?.[0] ?? null
-              if (!selected) return setFile(null)
+              const mySeq = (filePickSeqRef.current += 1)
+
+              if (!selected) {
+                setFileBusy(false)
+                setFile(null)
+                return
+              }
+
               if (selected.size > MAX_PHOTO_BYTES) {
+                setFileBusy(false)
                 setError('Photo must be 5MB or smaller.')
                 setFile(null)
                 e.target.value = ''
                 return
               }
+
+              const normalized = normalizeImageFile(selected)
+              if (!normalized) {
+                setFileBusy(false)
+                setError('Unsupported file type. Please upload an image.')
+                setFile(null)
+                e.target.value = ''
+                return
+              }
+
+              // Always send a consistent format to BE: JPEG.
+              if (normalized.type !== 'image/jpeg') {
+                setFileBusy(true)
+                setError(null)
+                void (async () => {
+                  try {
+                    const jpeg = await transcodeToJpeg(normalized)
+                    if (filePickSeqRef.current !== mySeq) return
+                    if (jpeg.size > MAX_PHOTO_BYTES) {
+                      setFileBusy(false)
+                      setError('Photo must be 5MB or smaller.')
+                      setFile(null)
+                      e.target.value = ''
+                      return
+                    }
+                    setFileBusy(false)
+                    setFile(jpeg)
+                  } catch {
+                    if (filePickSeqRef.current !== mySeq) return
+                    setFileBusy(false)
+                    setError('Failed to process this image. Try a different file.')
+                    setFile(null)
+                    e.target.value = ''
+                  }
+                })()
+                return
+              }
+
+              setFileBusy(false)
               setError(null)
-              setFile(selected)
+              setFile(normalized)
             }}
           />
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>Up to 5MB.</div>
+          <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+            Up to 5MB. Non-JPEG images are converted to JPEG before upload.
+          </div>
+          {fileBusy ? <div style={{ color: 'var(--muted)', fontSize: 13 }}>Processing image…</div> : null}
         </label>
       )}
 
-      <button className="btn btnPrimary" onClick={submit}>
+      <button className="btn btnPrimary" onClick={submit} disabled={fileBusy}>
         {mode === 'edit' ? 'Save changes' : 'Upload'}
       </button>
     </div>
