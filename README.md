@@ -74,9 +74,9 @@ This repo is set up to deploy via GitHub Actions to GitHub Pages (see `.github/w
 
 ### Vite `base`
 
-GitHub Pages project sites are served under `/<REPO>/` (e.g. `https://<USER>.github.io/project26/`). The config auto-detects this in CI using `GITHUB_REPOSITORY`.
+This site is served from `https://fiodarks.github.io/project26/`, so the correct Vite `base` is `/project26/`.
 
-If you deploy to a custom domain (or a user/org site like `https://<USER>.github.io/`), set `VITE_BASE=/` in the workflow or in your environment.
+The config auto-detects the repo name in GitHub Actions via `GITHUB_REPOSITORY`, so you typically don’t need to set anything manually.
 
 ### Backend
 
