@@ -17,7 +17,10 @@ function withAuthHeaders(token: string | null): HeadersInit {
 }
 
 export function makeUrl(path: string, query?: Record<string, string | undefined | string[]>) {
-  const url = new URL(apiBaseUrl() + path)
+  // Supports both absolute base URLs (e.g. http://localhost:8080/api/v1)
+  // and relative ones (e.g. /api/v1 via Vite proxy in dev).
+  const base = new URL(apiBaseUrl().replace(/\/+$/, '') + '/', window.location.origin)
+  const url = new URL(path.replace(/^\/+/, ''), base)
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v === undefined) continue
