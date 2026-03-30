@@ -48,11 +48,12 @@ jobs:
             --directory "./dist" \
             -cvf "${RUNNER_TEMP}/artifact.tar" \
             .
+          gzip -9 "${RUNNER_TEMP}/artifact.tar"
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: github-pages
-          path: ${{ runner.temp }}/artifact.tar
+          path: ${{ runner.temp }}/artifact.tar.gz
           retention-days: 1
           if-no-files-found: error
       - name: Deploy to GitHub Pages
