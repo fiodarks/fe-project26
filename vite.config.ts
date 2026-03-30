@@ -13,7 +13,7 @@ export default defineConfig({
         const pathname = new URL(homepage).pathname.replace(/\/?$/, '/')
         return pathname === '//' ? '/' : pathname
       } catch {
-        // Ignore invalid homepage URL and fall back to repo-based base.
+        // ignore invalid homepage URL
       }
     }
 
@@ -25,13 +25,4 @@ export default defineConfig({
     return `/${repoName}/`
   })(),
   plugins: [react()],
-  server: {
-    // Dev-only convenience: avoids CORS by proxying API requests through Vite.
-    proxy: {
-      '/api/v1': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-    },
-  },
 })

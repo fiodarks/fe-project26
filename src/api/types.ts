@@ -54,9 +54,9 @@ export type MaterialDTO = {
   creationDate: PartialDate
   description: string
   hierarchyId: string
-  ownerId?: string
-  authorName?: string
-  authorSurname?: string
+  ownerId: string
+  authorName?: string | null
+  authorSurname?: string | null
   fileUrl?: string
   thumbnailUrl?: string
   metadata: Record<string, string>
