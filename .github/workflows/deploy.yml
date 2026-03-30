@@ -39,23 +39,10 @@ jobs:
         run: npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      - name: Package Pages artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar \
-            --dereference --hard-dereference \
-            --directory "./dist" \
-            -cvf "${RUNNER_TEMP}/artifact.tar" \
-            .
-          gzip -9 "${RUNNER_TEMP}/artifact.tar"
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-pages-artifact@v4
         with:
-          name: github-pages
-          path: ${{ runner.temp }}/artifact.tar.gz
-          retention-days: 1
-          if-no-files-found: error
+          path: './dist'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
