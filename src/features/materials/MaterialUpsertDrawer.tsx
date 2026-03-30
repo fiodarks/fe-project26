@@ -4,6 +4,7 @@ import { HierarchyPicker } from '../hierarchy/HierarchyPicker'
 import type { LatLon } from '../map/LeafletMap'
 
 const partialDateRe = /^\d{4}(-\d{2}(-\d{2})?)?$/
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
 function extractHashTags(text: string): string[] {
   const matches = text.matchAll(/#([\p{L}\p{N}_-]+)/gu)
@@ -81,6 +82,7 @@ export function MaterialUpsertDrawer({
 
     if (!coords) return setError('Pick a point on the map (required).')
     if (!file) return setError('Photo file is required for upload.')
+    if (file.size > MAX_PHOTO_BYTES) return setError('Photo must be 5MB or smaller.')
 
     const form = new FormData()
     form.append('title', title.trim())
@@ -169,8 +171,20 @@ export function MaterialUpsertDrawer({
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              const selected = e.target.files?.[0] ?? null
+              if (!selected) return setFile(null)
+              if (selected.size > MAX_PHOTO_BYTES) {
+                setError('Photo must be 5MB or smaller.')
+                setFile(null)
+                e.target.value = ''
+                return
+              }
+              setError(null)
+              setFile(selected)
+            }}
           />
+          <div style={{ color: 'var(--muted)', fontSize: 13 }}>Up to 5MB.</div>
         </label>
       )}
 
