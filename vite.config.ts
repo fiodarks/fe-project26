@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { readFileSync } from 'node:fs'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -8,8 +7,7 @@ export default defineConfig({
     const explicitBase = process.env.VITE_BASE ?? process.env.BASE
     if (explicitBase) return explicitBase
 
-    const homepage =
-      process.env.npm_package_homepage ?? readHomepageFromPackageJson()
+    const homepage = '/'
     if (homepage) {
       try {
         const pathname = new URL(homepage).pathname.replace(/\/?$/, '/')
@@ -27,13 +25,3 @@ export default defineConfig({
   })(),
   plugins: [react()],
 })
-
-function readHomepageFromPackageJson(): string | undefined {
-  try {
-    const raw = readFileSync(new URL('./package.json', import.meta.url), 'utf8')
-    const parsed = JSON.parse(raw) as { homepage?: unknown }
-    return typeof parsed.homepage === 'string' ? parsed.homepage : undefined
-  } catch {
-    return undefined
-  }
-}
