@@ -67,7 +67,7 @@ npm run preview
 
 ## Deploy to GitHub Pages
 
-Live site: https://fiodarks.github.io/project26/
+Live site: https://fiodarks.github.io/fe-project26/
 
 This repo can be deployed to GitHub Pages using the `gh-pages` branch.
 
@@ -82,7 +82,7 @@ npm run deploy
 
 ### Vite `base`
 
-This site is served from https://fiodarks.github.io/project26/, so the correct Vite `base` is `/project26/`.
+This site is served from https://fiodarks.github.io/fe-project26/, so the correct Vite `base` is `/fe-project26/`.
 
 ### Backend
 

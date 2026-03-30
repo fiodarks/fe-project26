@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://fiodarks.github.io/project26/",
+  "homepage": "https://fiodarks.github.io/fe-project26/",
   "scripts": {
     "dev": "vite",
     "dev:host": "vite --host",
