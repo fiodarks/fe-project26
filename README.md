@@ -67,18 +67,22 @@ npm run preview
 
 ## Deploy to GitHub Pages
 
-This repo is set up to deploy via GitHub Actions to GitHub Pages (see `.github/workflows/deploy.yml`).
-
 Live site: https://fiodarks.github.io/project26/
 
-1. In GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
-2. Push to `main` (or run the workflow manually from the **Actions** tab).
+This repo can be deployed to GitHub Pages using the `gh-pages` branch.
+
+1. Ensure `homepage` in `package.json` matches your Pages URL (it drives Vite `base` during `npm run build`).
+2. Deploy from your machine:
+
+```bash
+npm run deploy
+```
+
+3. In GitHub: **Settings → Pages → Build and deployment → Source → Deploy from a branch → Branch: `gh-pages`**.
 
 ### Vite `base`
 
 This site is served from https://fiodarks.github.io/project26/, so the correct Vite `base` is `/project26/`.
-
-The config auto-detects the repo name in GitHub Actions via `GITHUB_REPOSITORY`, so you typically don’t need to set anything manually.
 
 ### Backend
 
