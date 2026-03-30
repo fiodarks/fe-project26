@@ -65,7 +65,15 @@ export function MaterialDetailsDrawer({
     [session.accessToken],
   )
   const ownerKey = profile.userId ?? profile.email
-  const isOwner = Boolean(ownerKey) && material.ownerId === ownerKey
+  const isOwner = useMemo(() => {
+    if (ownerKey && material.ownerId) return material.ownerId === ownerKey
+    const pn = (profile.name ?? '').trim().toLowerCase()
+    const ps = (profile.surname ?? '').trim().toLowerCase()
+    const an = (material.authorName ?? '').trim().toLowerCase()
+    const as = (material.authorSurname ?? '').trim().toLowerCase()
+    if (!pn || !ps || !an || !as) return false
+    return pn === an && ps === as
+  }, [material.authorName, material.authorSurname, material.ownerId, ownerKey, profile.name, profile.surname])
 
   const [blockReason, setBlockReason] = useState('Defective content')
   const [blockUntil, setBlockUntil] = useState(() => {

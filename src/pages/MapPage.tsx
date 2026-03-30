@@ -8,7 +8,6 @@ import {
   getMaterial,
   getMaterialPreviews,
   getMaterialPoints,
-  searchMaterials,
   updateMaterial,
 } from '../api/archiveApi'
 import type {
@@ -92,6 +91,12 @@ export function MapPage({
     [token],
   )
   const currentUserId = profile.userId
+  const profileNameKey = useMemo(() => {
+    const name = (profile.name ?? '').trim().toLowerCase()
+    const surname = (profile.surname ?? '').trim().toLowerCase()
+    if (!name || !surname) return null
+    return `${name} ${surname}`
+  }, [profile.name, profile.surname])
 
   const [prevLoginAt, setPrevLoginAt] = useState<string | null>(null)
   useEffect(() => {
@@ -282,8 +287,9 @@ export function MapPage({
   const [listMode, setListMode] = useState<'mine' | 'newSinceLogin'>('mine')
   const [listSearch, setListSearch] = useState('')
   const [listLoading, setListLoading] = useState(false)
+  const [listRemovingId, setListRemovingId] = useState<string | null>(null)
   const [listError, setListError] = useState<string | null>(null)
-  const [listItems, setListItems] = useState<MaterialDTO[]>([])
+  const [listItemsAll, setListItemsAll] = useState<MaterialDTO[]>([])
   const listFetchSeqRef = useRef(0)
 
   const pointsLogUserKey = useMemo(() => {
@@ -305,26 +311,104 @@ export function MapPage({
     [onNeedLogin, onToast, token],
   )
 
+  const listItems = useMemo(() => {
+    const q = listSearch.trim().toLowerCase()
+    if (!q) return listItemsAll
+    return listItemsAll.filter((m) => {
+      const hay = `${m.title} ${m.location} ${m.creationDate}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [listItemsAll, listSearch])
+
+  const canRemove = useCallback(
+    (m: MaterialDTO) => {
+      if (!token) return false
+      if (canAdmin) return true
+      if (!roles.has('creator')) return false
+      if (currentUserId && m.ownerId) return m.ownerId === currentUserId
+      if (profileNameKey && m.authorName && m.authorSurname) {
+        const key =
+          `${m.authorName}`.trim().toLowerCase() +
+          ' ' +
+          `${m.authorSurname}`.trim().toLowerCase()
+        return key.trim() === profileNameKey
+      }
+      return false
+    },
+    [canAdmin, currentUserId, profileNameKey, roles, token],
+  )
+
   useEffect(() => {
     if (!listDrawerOpen) return
     if (!token) return
+    if (!bbox) {
+      setListLoading(false)
+      setListError('Move/zoom the map to load a list (bbox missing).')
+      setListItemsAll([])
+      return
+    }
 
     const seq = ++listFetchSeqRef.current
     setListLoading(true)
     setListError(null)
-    setListItems([])
+    setListItemsAll([])
 
     void (async () => {
       try {
-        const res = await searchMaterials(token, {
-          search: listSearch.trim() || undefined,
-          page: 0,
-          size: 200,
-        })
+        const points =
+          pointsRes?.points ??
+          (await getMaterialPoints({
+            bbox,
+            search: searchApplied.search.trim() || undefined,
+            dateFrom: searchApplied.dateFrom.trim() || undefined,
+            dateTo: searchApplied.dateTo.trim() || undefined,
+            hierarchyLevelId: searchApplied.hierarchyLevelIds.length
+              ? searchApplied.hierarchyLevelIds
+              : undefined,
+          })).points
+
+        const ids: string[] = []
+        for (const p of points) {
+          for (const ph of p.photos) ids.push(ph.id)
+        }
+
+        const uniqueIds = Array.from(new Set(ids)).slice(0, 300)
+
+        const concurrency = 8
+        const out: MaterialDTO[] = []
+        let failed = 0
+        let cursor = 0
+
+        const worker = async () => {
+          while (true) {
+            const idx = cursor++
+            if (idx >= uniqueIds.length) return
+            const id = uniqueIds[idx]
+            try {
+              const m = await getMaterial(token, id)
+              out.push(m)
+            } catch {
+              failed++
+            }
+          }
+        }
+
+        await Promise.all(Array.from({ length: Math.min(concurrency, uniqueIds.length) }, worker))
+
         if (seq !== listFetchSeqRef.current) return
-        let items = (res.data ?? []).slice()
+        let items = out.slice()
+        if (!items.length && uniqueIds.length && failed === uniqueIds.length) {
+          throw new Error('Failed to load material details for list')
+        }
         if (listMode === 'mine') {
-          items = currentUserId ? items.filter((m) => m.ownerId === currentUserId) : []
+          items = items.filter((m) => {
+            if (currentUserId && m.ownerId) return m.ownerId === currentUserId
+            if (profileNameKey && m.authorName && m.authorSurname) {
+              const key = `${m.authorName}`.trim().toLowerCase() + ' ' + `${m.authorSurname}`.trim().toLowerCase()
+              return key.trim() === profileNameKey
+            }
+            return false
+          })
         } else {
           if (!prevLoginAt) items = []
           else {
@@ -333,18 +417,18 @@ export function MapPage({
           }
         }
         items.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        setListItems(items)
+        setListItemsAll(items)
       } catch (e: unknown) {
         if (seq !== listFetchSeqRef.current) return
         const msg = extractErrorMessage(e)
         setListError(msg)
-        setListItems([])
+        setListItemsAll([])
         onToast(msg)
       } finally {
         if (seq === listFetchSeqRef.current) setListLoading(false)
       }
     })()
-  }, [currentUserId, listDrawerOpen, listMode, listSearch, onToast, prevLoginAt, token])
+  }, [bbox, currentUserId, listDrawerOpen, listMode, onToast, pointsRes, prevLoginAt, profileNameKey, searchApplied, token])
 
   useEffect(() => {
     if (!upsertOpen) return
@@ -717,6 +801,10 @@ export function MapPage({
                     onToast('Admin role required')
                     return
                   }
+                  if (!selectedMaterial.ownerId) {
+                    onToast('Missing owner id')
+                    return
+                  }
                   try {
                     await blockUser(token, selectedMaterial.ownerId, {
                       reason,
@@ -879,34 +967,83 @@ export function MapPage({
                   key={m.id}
                   style={{
                     border: '1px solid var(--border)',
-                    borderRadius: 12,
-                    padding: 10,
+                    borderRadius: 10,
+                    padding: 8,
                     background: 'var(--surface)',
-                    display: 'grid',
-                    gap: 6,
+                    display: 'flex',
+                    gap: 10,
+                    alignItems: 'flex-start',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
-                    <div style={{ fontWeight: 750, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {m.title || m.id}
-                    </div>
-                    <div style={{ marginLeft: 'auto', color: 'var(--muted)', fontSize: 12 }}>
-                      {fmtDateTime(m.createdAt)}
-                    </div>
-                  </div>
-                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                    {m.location} • {m.creationDate}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        setListDrawerOpen(false)
-                        void openMaterialDetails(m.id)
+                  {m.thumbnailUrl ? (
+                    <img
+                      src={m.thumbnailUrl}
+                      alt={m.title || 'Material thumbnail'}
+                      style={{
+                        width: 112,
+                        height: 78,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface)',
                       }}
-                    >
-                      Open
-                    </button>
+                      loading="lazy"
+                    />
+                  ) : null}
+
+                  <div style={{ display: 'grid', gap: 4, minWidth: 0, flex: '1 1 auto' }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', minWidth: 0 }}>
+                      <div style={{ fontWeight: 750, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {m.title || m.id}
+                      </div>
+                      <div style={{ marginLeft: 'auto', color: 'var(--muted)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {fmtDateTime(m.createdAt)}
+                      </div>
+                    </div>
+                    {m.authorName || m.authorSurname ? (
+                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                        By {[m.authorName, m.authorSurname].filter(Boolean).join(' ')}
+                      </div>
+                    ) : null}
+                    <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                      {m.location} • {m.creationDate}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        className="btn"
+                        onClick={() => {
+                          setListDrawerOpen(false)
+                          void openMaterialDetails(m.id)
+                        }}
+                      >
+                        Open
+                      </button>
+                      {canRemove(m) ? (
+                        <button
+                          className="btn btnDanger"
+                          disabled={listRemovingId === m.id}
+                          onClick={async () => {
+                            if (!token) return
+                            const ok = window.confirm('Remove this material?')
+                            if (!ok) return
+                            try {
+                              setListRemovingId(m.id)
+                              await deleteMaterial(token, m.id)
+                              setListItemsAll((prev) => prev.filter((x) => x.id !== m.id))
+                              onToast('Removed')
+                              if (bbox) void runFetchPoints()
+                            } catch (e: unknown) {
+                              onToast(extractErrorMessage(e))
+                            } finally {
+                              setListRemovingId(null)
+                            }
+                          }}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))}
