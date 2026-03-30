@@ -65,6 +65,19 @@ npm run build
 npm run preview
 ```
 
+## Deploy to GitHub Pages
+
+This repo is set up to deploy via GitHub Actions to GitHub Pages (see `.github/workflows/deploy.yml`).
+
+1. In GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
+2. Push to `main` (or run the workflow manually from the **Actions** tab).
+
+### Vite `base`
+
+GitHub Pages project sites are served under `/<REPO>/` (e.g. `https://<USER>.github.io/project26/`). The config auto-detects this in CI using `GITHUB_REPOSITORY`.
+
+If you deploy to a custom domain (or a user/org site like `https://<USER>.github.io/`), set `VITE_BASE=/` in the workflow or in your environment.
+
 ### Backend
 
 By default the app calls `http://localhost:8080/api/v1`. Override with `VITE_API_BASE_URL` if needed.
