@@ -69,12 +69,14 @@ npm run preview
 
 This repo is set up to deploy via GitHub Actions to GitHub Pages (see `.github/workflows/deploy.yml`).
 
+Live site: https://fiodarks.github.io/project26/
+
 1. In GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
 2. Push to `main` (or run the workflow manually from the **Actions** tab).
 
 ### Vite `base`
 
-This site is served from `https://fiodarks.github.io/project26/`, so the correct Vite `base` is `/project26/`.
+This site is served from https://fiodarks.github.io/project26/, so the correct Vite `base` is `/project26/`.
 
 The config auto-detects the repo name in GitHub Actions via `GITHUB_REPOSITORY`, so you typically don’t need to set anything manually.
 
