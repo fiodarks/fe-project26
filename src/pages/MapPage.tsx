@@ -25,6 +25,7 @@ import { LeafletMap, type LatLon } from '../features/map/LeafletMap'
 import { HierarchyViewportPicker } from '../features/hierarchy/HierarchyViewportPicker'
 import { MaterialDetailsDrawer } from '../features/materials/MaterialDetailsDrawer'
 import { MaterialUpsertDrawer } from '../features/materials/MaterialUpsertDrawer'
+import { makePointBbox } from '../features/map/pointMaterials'
 import { reverseGeocodeOsmNominatim } from '../features/map/reverseGeocode'
 import { UserDrawer } from '../features/user/UserDrawer'
 import { appendPointsLog } from '../features/user/pointsLog'
@@ -67,6 +68,8 @@ export function MapPage({
   const [pickedPoint, setPickedPoint] = useState<LatLon | null>(null)
   const [pickedPointLocationHint, setPickedPointLocationHint] = useState<string | null>(null)
   const pickedPointLocationSeqRef = useRef(0)
+  const [mapCenterOn, setMapCenterOn] = useState<{ point: LatLon; id: number } | null>(null)
+  const mapCenterOnSeqRef = useRef(0)
 
   const [rightDrawerOpen, setRightDrawerOpen] = useState(false)
   const [rightDrawerMode, setRightDrawerMode] = useState<'point' | 'material'>('point')
@@ -221,6 +224,62 @@ export function MapPage({
       onToast('Failed to load photo details.')
     }
   }
+
+  const backToPointFromSelectedMaterial = useCallback(async () => {
+    if (!selectedMaterial) return
+    const lat = selectedMaterial.lat
+    const lon = selectedMaterial.lon
+    if (typeof lat !== 'number' || typeof lon !== 'number') {
+      onToast('No coordinates for this photo.')
+      return
+    }
+
+    const bbox = makePointBbox({ lat, lon }, 12)
+    try {
+      const res = await getMaterialPoints(bbox)
+      const key = `${lat.toFixed(6)},${lon.toFixed(6)}`
+
+      const point =
+        res.points.find((p) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}` === key) ??
+        res.points
+          .slice()
+          .sort((a, b) => {
+            const da = (a.lat - lat) ** 2 + (a.lon - lon) ** 2
+            const db = (b.lat - lat) ** 2 + (b.lon - lon) ** 2
+            return da - db
+          })[0] ??
+        null
+
+      if (!point) {
+        onToast('Point not found for this photo.')
+        return
+      }
+
+      setMapCenterOn({
+        point: { lat: point.lat, lon: point.lon },
+        id: ++mapCenterOnSeqRef.current,
+      })
+
+      setPointsRes((prev) => {
+        const prevPoints = prev?.points ?? []
+        const exists = prevPoints.some(
+          (p) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}` === `${point.lat.toFixed(6)},${point.lon.toFixed(6)}`,
+        )
+        if (exists) return prev
+        const prevTotalPhotos = prev ? prev.totalPhotos : 0
+        return {
+          points: prevPoints.concat(point),
+          totalPhotos: prevTotalPhotos + point.photos.length,
+        }
+      })
+
+      setSelectedPointKey(`${point.lat.toFixed(6)},${point.lon.toFixed(6)}`)
+      setRightDrawerMode('point')
+      setSelectedMaterial(null)
+    } catch (e: unknown) {
+      onToast(extractErrorMessage(e))
+    }
+  }, [onToast, selectedMaterial])
 
   useEffect(() => {
     if (!rightDrawerOpen) return
@@ -518,6 +577,7 @@ export function MapPage({
           points={mapPoints}
           selectedPointKey={selectedPointKey}
           pickedPoint={pickedPoint}
+          centerOn={mapCenterOn}
           isSignedIn={Boolean(token)}
           onPickedPoint={(p) => setPickedPoint(p)}
           onRequestUploadAtPoint={requestUploadAtPoint}
@@ -751,7 +811,7 @@ export function MapPage({
                   {selectedPoint.title} • {selectedPoint.lat.toFixed(6)}, {selectedPoint.lon.toFixed(6)}
                 </div>
               ) : (
-                <button className="btn" onClick={() => setRightDrawerMode('point')}>
+                <button className="btn" onClick={() => void backToPointFromSelectedMaterial()}>
                   Back to point
                 </button>
               )}

@@ -234,20 +234,22 @@ export async function getMaterial(
   token: string | null,
   id: string,
 ): Promise<MaterialDTO> {
-  return fetchJson<MaterialDTO>(makeUrl(`/materials/${encodeURIComponent(id)}`), {
+  const raw = await fetchJson<unknown>(makeUrl(`/materials/${encodeURIComponent(id)}`), {
     headers: { ...authHeaders(token) },
   })
+  return normalizeMaterialDto(raw)
 }
 
 export async function createMaterial(
   token: string | null,
   form: FormData,
 ): Promise<MaterialDTO> {
-  return fetchJson<MaterialDTO>(makeUrl('/materials'), {
+  const raw = await fetchJson<unknown>(makeUrl('/materials'), {
     method: 'POST',
     headers: { ...authHeaders(token) },
     body: form,
   })
+  return normalizeMaterialDto(raw)
 }
 
 export async function updateMaterial(
@@ -255,11 +257,12 @@ export async function updateMaterial(
   id: string,
   command: UpdateMaterialCommand,
 ): Promise<MaterialDTO> {
-  return fetchJson<MaterialDTO>(makeUrl(`/materials/${encodeURIComponent(id)}`), {
+  const raw = await fetchJson<unknown>(makeUrl(`/materials/${encodeURIComponent(id)}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify(command),
   })
+  return normalizeMaterialDto(raw)
 }
 
 export async function deleteMaterial(
@@ -412,7 +415,7 @@ function normalizeMaterialListResponse(
   if (Array.isArray(raw)) {
     return {
       pagination: { page, size, totalElements: raw.length, totalPages: 1 },
-      data: raw as MaterialDTO[],
+      data: normalizeMaterialArray(raw),
     }
   }
   if (!raw || typeof raw !== 'object') throw new Error('Unexpected /materials response')
@@ -423,11 +426,12 @@ function normalizeMaterialListResponse(
   if (data && Array.isArray(data)) {
     const pagination = obj.pagination
     if (pagination && typeof pagination === 'object') {
-      return raw as MaterialListResponse
+      const cast = raw as MaterialListResponse
+      return { ...cast, data: normalizeMaterialArray(cast.data as unknown[]) }
     }
     return {
       pagination: { page, size, totalElements: data.length, totalPages: 1 },
-      data: data as MaterialDTO[],
+      data: normalizeMaterialArray(data),
     }
   }
 
@@ -554,4 +558,65 @@ function yearFromIsoLike(s: string | undefined): number | null {
   if (!m) return null
   const y = Number(m[1])
   return Number.isFinite(y) ? y : null
+}
+
+function normalizeMaterialArray(items: unknown[]): MaterialDTO[] {
+  return items
+    .map((x) => {
+      try {
+        return normalizeMaterialDto(x)
+      } catch {
+        return null
+      }
+    })
+    .filter((x): x is MaterialDTO => Boolean(x))
+}
+
+function firstNonEmptyString(...items: unknown[]): string | null {
+  for (const item of items) {
+    if (typeof item !== 'string') continue
+    const v = item.trim()
+    if (v) return v
+  }
+  return null
+}
+
+function normalizeMaterialDto(raw: unknown): MaterialDTO {
+  if (!raw || typeof raw !== 'object') throw new Error('Unexpected material DTO')
+  const obj = raw as Record<string, unknown>
+
+  const ownerFromNested =
+    obj.owner && typeof obj.owner === 'object'
+      ? firstNonEmptyString(
+          (obj.owner as Record<string, unknown>).id,
+          (obj.owner as Record<string, unknown>).userId,
+          (obj.owner as Record<string, unknown>).user_id,
+        )
+      : null
+
+  const ownerId =
+    firstNonEmptyString(
+      obj.ownerId,
+      obj.owner_id,
+      obj.userId,
+      obj.user_id,
+      obj.createdBy,
+      obj.created_by,
+      obj.createdById,
+      obj.created_by_id,
+    ) ?? ownerFromNested ?? ''
+
+  const authorName =
+    firstNonEmptyString(obj.authorName, obj.author_name, obj.uploaderName, obj.uploader_name) ??
+    (obj.authorName === null ? null : undefined)
+  const authorSurname =
+    firstNonEmptyString(obj.authorSurname, obj.author_surname, obj.uploaderSurname, obj.uploader_surname) ??
+    (obj.authorSurname === null ? null : undefined)
+
+  return {
+    ...(obj as unknown as MaterialDTO),
+    ownerId,
+    ...(authorName !== undefined ? { authorName } : {}),
+    ...(authorSurname !== undefined ? { authorSurname } : {}),
+  }
 }

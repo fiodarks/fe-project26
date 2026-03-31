@@ -22,6 +22,11 @@ function App() {
   const [toast, setToast] = useState<string | null>(null)
   const [signInOpen, setSignInOpen] = useState(false)
 
+  const redirectHome = () => {
+    const base = (import.meta.env.BASE_URL as string | undefined) ?? '/'
+    window.location.replace(`${base}#/`)
+  }
+
   const roles = useMemo(
     () => decodeRolesFromToken(session.accessToken),
     [session.accessToken],
@@ -76,11 +81,6 @@ function App() {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
     const state = params.get('state')
-
-    const redirectHome = () => {
-      const base = (import.meta.env.BASE_URL as string | undefined) ?? '/'
-      window.location.replace(`${base}#/`)
-    }
 
     if (!code || !state) {
       window.sessionStorage.setItem(
@@ -149,6 +149,7 @@ function App() {
                   clearSession()
                   setSession(loadSession())
                   setToast('Signed out')
+                  redirectHome()
                 }}
               >
                 Sign out

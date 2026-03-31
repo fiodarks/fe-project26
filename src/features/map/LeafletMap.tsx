@@ -14,6 +14,7 @@ export function LeafletMap({
   points,
   selectedPointKey,
   pickedPoint,
+  centerOn,
   isSignedIn,
   onPickedPoint,
   onRequestUploadAtPoint,
@@ -25,6 +26,7 @@ export function LeafletMap({
   points: MaterialPointDTO[]
   selectedPointKey: string | null
   pickedPoint: LatLon | null
+  centerOn?: { point: LatLon; id: number } | null
   isSignedIn: boolean
   onPickedPoint: (p: LatLon | null) => void
   onRequestUploadAtPoint?: (p: LatLon) => void
@@ -159,6 +161,14 @@ export function LeafletMap({
 
     emitBounds()
   }, [onBoundsBbox, onPickedPoint])
+
+  useEffect(() => {
+    if (!centerOn) return
+    const map = mapRef.current
+    if (!map) return
+    const z = map.getZoom()
+    map.setView([centerOn.point.lat, centerOn.point.lon], z)
+  }, [centerOn?.id])
 
   useEffect(() => {
     const L = asLeaflet(window.L)

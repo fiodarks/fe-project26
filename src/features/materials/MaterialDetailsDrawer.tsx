@@ -92,6 +92,20 @@ export function MaterialDetailsDrawer({
     [material.fileUrl, material.thumbnailUrl],
   )
 
+  const uploaderName = useMemo(() => {
+    const name = (material.authorName ?? '').trim()
+    const surname = (material.authorSurname ?? '').trim()
+    const full = `${name} ${surname}`.trim().replace(/\s+/g, ' ')
+    return full || null
+  }, [material.authorName, material.authorSurname])
+
+  const uploaderLabel = useMemo(() => {
+    if (uploaderName) return uploaderName
+    const owner = (material.ownerId ?? '').trim()
+    if (owner) return owner
+    return 'Unknown'
+  }, [material.ownerId, uploaderName])
+
   const materialPoint = useMemo(() => extractLatLon(material), [material])
   const pointKey = useMemo(() => {
     if (!materialPoint) return null
@@ -175,8 +189,13 @@ export function MaterialDetailsDrawer({
 
       <div>
         <div style={{ fontWeight: 750, fontSize: 18 }}>{material.title}</div>
-        <div style={{ color: 'var(--muted)' }}>
-          {material.creationDate} • {material.location}
+        <div style={{ color: 'var(--muted)', display: 'grid', gap: 2 }}>
+          <div>
+            {material.creationDate} • {material.location}
+          </div>
+          <div>
+            Uploaded by: {uploaderLabel}
+          </div>
         </div>
       </div>
 
@@ -314,7 +333,7 @@ export function MaterialDetailsDrawer({
           <summary style={{ cursor: 'pointer' }}>
             <span style={{ fontWeight: 750 }}>Admin: block owner</span>
             <span style={{ marginLeft: 10, color: 'var(--muted)', fontSize: 12 }}>
-              Owner id: {material.ownerId || '—'}
+              Owner: {uploaderLabel} • Owner id: {material.ownerId || '—'}
             </span>
           </summary>
 
