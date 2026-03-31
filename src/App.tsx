@@ -99,10 +99,6 @@ function App() {
         window.localStorage.setItem('dsa_access_token', res.accessToken)
         window.sessionStorage.setItem('dsa_post_login_toast', 'Signed in with Google')
       } catch (e) {
-        window.sessionStorage.setItem(
-          'dsa_post_login_toast',
-          e instanceof Error ? `Google login failed: ${e.message}` : 'Google login failed',
-        )
       } finally {
         redirectHome()
       }
